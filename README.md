@@ -1,46 +1,86 @@
-# SmartScan POC
+# Invoice Data Extraction - Visma ML API Test
 
-Prova de conceito para integração com a API SmartScan da Visma.
+This POC demonstrates how to extract invoice data using the Visma ML API. It processes invoice documents asynchronously and stores the results in JSON format.
 
-## Estrutura do Projeto
+## Features
 
-- `visma_invoice_test/` - Contém o código principal para processamento de faturas
-- `uploads/` - Coloque aqui seus arquivos PDF para processamento (ignorados pelo Git)
-- `results/` - Os resultados do processamento serão salvos aqui (ignorados pelo Git)
+- Asynchronous document processing through Visma ML API
+- Support for PDF and image-based invoices
+- Extraction of multiple invoice data fields
+- Optional removal of bounding box coordinates to reduce JSON file size
+- Standalone utility for bounding box removal from existing JSON files
 
-## Configuração
+## Setup
 
-### Ambiente Virtual
+1. Clone this repository to your local machine
+2. Install the Python dependencies:
 
-Recomenda-se usar um ambiente virtual para isolar as dependências do projeto:
-
-```powershell
-# Criar ambiente virtual
-python -m venv .venv
-
-# Ativar ambiente virtual
-.\.venv\Scripts\Activate.ps1
-
-# Instalar dependências
-pip install -r visma_invoice_test/requirements.txt
+```
+pip install -r requirements.txt
 ```
 
-## Arquivos Ignorados pelo Git
+3. Place your invoice documents (PDF, PNG, JPG, JPEG, TIFF) in the `uploads/` folder
 
-Os seguintes arquivos e diretórios são ignorados pelo Git (adicionados ao `.gitignore`):
+## Usage
 
-- `.venv/` e outros diretórios de ambiente virtual
-- `results/` - Contém os resultados do processamento
-- `uploads/` - Contém os arquivos a serem processados
-- Arquivos de cache do Python (`.pyc`, `__pycache__/`, etc.)
-- Arquivos específicos do sistema operacional (`.DS_Store`, `Thumbs.db`, etc.)
-- Arquivos de configuração de IDE (`.vscode/`, `.idea/`, etc.)
+### Asynchronous Processing
 
-## Uso
+Run the main script to process an invoice document:
 
-1. Coloque seus arquivos PDF na pasta `uploads/`
-2. Execute o script principal:
-   ```
-   python visma_invoice_test/app.py
-   ```
-3. Os resultados serão salvos na pasta `results/`
+```
+python app.py
+```
+
+The script will:
+1. Upload the document to the Visma API
+2. Poll for processing status
+3. Save the results to a timestamped JSON file in the `results/` folder
+
+By default, the script is configured to remove bounding box data from the results. You can change this by modifying the parameter in the main function call: `enviar_assincrono(remove_bbox=True/False)`
+
+## Extracted Fields
+
+The application extracts the following invoice fields:
+
+### Document Information
+- Document Type
+- Document Date
+- Document Number
+- Order Number
+- Payment Due Date
+- Currency
+- Payment Method
+
+### Supplier Details
+- Supplier Name
+- Supplier Address
+- Supplier Country Code
+- Supplier VAT Number
+- Supplier Organization Number
+
+### Recipient Details
+- Receiver Name
+- Receiver Address
+- Receiver Country Code
+- Receiver VAT Number
+- Receiver Order Number
+
+### Financial Information
+- Total Amount (Excluding VAT)
+- VAT Amount
+- Total Amount (Including VAT)
+
+### Banking Details
+- IBAN
+- BIC
+- Bank Account Number
+- Bank Registration Number
+
+### Line Items
+- Purchase Lines (product details)
+
+## Technologies Used
+
+- Python 3.x
+- Requests library
+- Visma ML API
