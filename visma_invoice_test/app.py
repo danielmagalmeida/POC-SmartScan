@@ -166,7 +166,7 @@ def enviar_assincrono(file_path: Path, remove_bbox=False):
         json.dump(result_json, f, ensure_ascii=False, indent=2)
 
     print(f"✅ Result saved to: {output_file}")
-    return result_json
+    return result_json  # Este JSON será enviado para o frontend
 
 
 app = FastAPI()
