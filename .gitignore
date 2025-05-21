@@ -1,0 +1,46 @@
+# Arquivo .gitignore para o projeto poc-smartscan
+# Ambiente virtual
+.venv/
+venv/
+env/
+ENV/
+.env
+.python-version
+.github
+
+# Arquivos específicos do projeto
+results/
+uploads/
+
+# Arquivos de cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Arquivos de configuração do IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs e bancos de dados
+*.log
+*.sql
+*.sqlite
+*.db
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Arquivos de compilação
+build/
+dist/
+*.egg-info/
