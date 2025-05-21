@@ -4,6 +4,10 @@ import time
 import requests
 from pathlib import Path
 from datetime import datetime
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+import shutil
 
 # Configuration
 API_URL = "https://api.stag.ssn.visma.ai/v1/transactions"
@@ -90,13 +94,13 @@ def remove_bounding_boxes(data):
         return data
 
 
-def enviar_assincrono(remove_bbox=False):
-    if not DOCUMENT_PATH.exists():
-        print(f"❌ File {DOCUMENT_PATH} not found.")
+def enviar_assincrono(file_path: Path, remove_bbox=False):
+    if not file_path.exists():
+        print(f"❌ File {file_path} not found.")
         return
 
     RESULTS_PATH.mkdir(parents=True, exist_ok=True)
-    document_base64 = encode_file_to_base64(DOCUMENT_PATH)
+    document_base64 = encode_file_to_base64(file_path)
 
     headers = {
         "Authorization": f"Bearer demo",
@@ -165,6 +169,36 @@ def enviar_assincrono(remove_bbox=False):
     return result_json
 
 
+app = FastAPI()
+
+# Configuração do CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permite todas as origens. Ajuste conforme necessário.
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+UPLOAD_FOLDER = Path("uploads")
+UPLOAD_FOLDER.mkdir(exist_ok=True)
+
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file selected")
+
+    file_path = UPLOAD_FOLDER / file.filename
+    with file_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Chama a função enviar_assincrono com o arquivo enviado
+    try:
+        result = enviar_assincrono(file_path, remove_bbox=True)
+        return JSONResponse(content={"message": "File processed successfully", "result": result}, status_code=200)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
-    # Set to True to remove boundingBox fields, False to keep them
-    enviar_assincrono(True)
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="debug")

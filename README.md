@@ -83,4 +83,53 @@ The application extracts the following invoice fields:
 
 - Python 3.x
 - Requests library
+- FastAPI
+- React.js
 - Visma ML API
+
+## Web Interface
+
+This project includes a React-based web interface for easier interaction with the Visma SmartScan API.
+
+### Frontend Setup
+
+1. Install Node.js dependencies:
+```powershell
+cd smartscan-web
+npm install
+```
+
+2. Start the React development server:
+```powershell
+cd smartscan-web
+npm start
+```
+The frontend will be available at http://localhost:3000
+
+### Backend Setup
+
+1. Ensure Python virtual environment is activated:
+```powershell
+.venv\Scripts\activate
+```
+
+2. Install backend dependencies:
+```powershell
+pip install -r visma_invoice_test/requirements.txt
+```
+
+3. Start the FastAPI backend:
+```powershell
+python visma_invoice_test/app.py
+```
+The API will be available at http://localhost:8000
+
+### Using the Web Interface
+
+1. Open http://localhost:3000 in your browser
+2. Use the file upload form to select an invoice document
+3. Click "Upload" to process the document
+4. The system will display a loading indicator while processing
+5. Once complete, you'll receive a confirmation message
+
+You can find the processed results in the `results` folder as JSON files.
