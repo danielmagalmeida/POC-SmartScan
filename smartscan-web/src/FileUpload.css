@@ -164,6 +164,53 @@
     min-width: 950px; /* Garante largura mínima consistente */
 }
 
+.save-feedback-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 10px 0 20px;
+    transition: background-color 0.3s;
+}
+
+.save-feedback-btn:hover {
+    background-color: #45a049;
+}
+
+.save-feedback-btn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.spinner-container.small {
+    margin: 10px 0;
+}
+
+.spinner-container.small .spinner {
+    width: 20px;
+    height: 20px;
+    border-width: 3px;
+}
+
+.message, .feedback-message {
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+}
+
+.message {
+    background-color: #e3f2fd;
+    color: #0d47a1;
+}
+
+.feedback-message {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
 /* Estilos para tabela de linhas de compra */
 .purchase-lines-container {
     margin-top: 15px;

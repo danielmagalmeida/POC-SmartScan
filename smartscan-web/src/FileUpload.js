@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import './FileUpload.css';
 
@@ -7,6 +7,9 @@ const FileUpload = () => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [resultData, setResultData] = useState(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const formRef = useRef(null);
 
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
@@ -36,6 +39,77 @@ const FileUpload = () => {
       setMessage(error.response?.data?.error || 'An error occurred while uploading the file.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Função para coletar todos os valores dos inputs e enviar como feedback
+  const handleSaveFeedback = async () => {
+    if (!resultData || !resultData.id) {
+      setFeedbackMessage('No document data available to send feedback for.');
+      return;
+    }
+
+    // Coletar todos os valores dos campos
+    const feedbackData = {
+      transactionId: resultData.id, // ID da transação original
+      fields: {}
+    };
+
+    // Coletar valores dos campos normais (ignorando campos vazios)
+    document.querySelectorAll('.field-item input').forEach(input => {
+      // Apenas incluir campos que não estão vazios
+      if (input.value.trim() !== '') {
+        const fieldName = input.closest('.field-item').querySelector('.field-label').textContent;
+        feedbackData.fields[fieldName] = input.value.trim();
+      }
+    });
+
+    // Coletar valores da tabela de linhas de compra
+    const purchaseLines = [];
+    document.querySelectorAll('.purchase-lines-table tbody tr').forEach((row, index) => {
+      const lineItem = {};
+      let hasValue = false; // Flag para verificar se a linha tem pelo menos um valor não-vazio
+      
+      row.querySelectorAll('td input').forEach((input, cellIndex) => {
+        const headerTitle = document.querySelector(`.purchase-lines-table thead th:nth-child(${cellIndex + 1})`).getAttribute('title');
+        if (headerTitle && input.value.trim() !== '') {
+          lineItem[headerTitle] = input.value.trim();
+          hasValue = true; // A linha tem pelo menos um campo com valor
+        }
+      });
+      
+      // Só adicionar a linha se tiver pelo menos um valor não-vazio
+      if (hasValue) {
+        purchaseLines.push(lineItem);
+      }
+    });
+
+    if (purchaseLines.length > 0) {
+      feedbackData.fields['PURCHASE_LINES'] = purchaseLines;
+    }
+    
+    // Se não houver campos para enviar, mostrar mensagem e não enviar requisição
+    if (Object.keys(feedbackData.fields).length === 0) {
+      setFeedbackMessage('No fields were modified. Nothing to send.');
+      return;
+    }
+
+    // Enviar os dados para o backend
+    setFeedbackLoading(true);
+    setFeedbackMessage('');
+    console.log('Sending feedback data:', feedbackData);
+    try {
+      const response = await axios.post('http://localhost:8000/feedback', feedbackData);
+      console.log('Feedback response:', response.data);
+      setFeedbackMessage(response.data.message || 'Feedback sent successfully!');
+    } catch (error) {
+      console.error('Feedback error:', error);
+      setFeedbackMessage(
+        error.response?.data?.error || 
+        `Error: ${error.message}. Status: ${error.response?.status || 'unknown'}`
+      );
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -152,7 +226,7 @@ const FileUpload = () => {
 
   return (
     <div className='file-upload-container'>
-      <h1>SmartScan POC</h1>
+      <h1>POC: VML Smartscan</h1>
       <form onSubmit={handleSubmit}>
         <input type="file" onChange={handleFileChange} />
         <button type="submit" disabled={loading}>Upload</button>
@@ -163,11 +237,27 @@ const FileUpload = () => {
           <p>Loading...</p>
         </div>
       )}
-      {message && <p>{message}</p>}
+      {message && <p className="message">{message}</p>}
+      {feedbackMessage && <p className="feedback-message">{feedbackMessage}</p>}
       
       {resultData && (
         <div className="json-result">
           <h2>Document Analysis Results:</h2>
+          {!feedbackLoading && (
+            <button 
+              className="save-feedback-btn" 
+              onClick={handleSaveFeedback}
+              disabled={feedbackLoading}
+            >
+              {feedbackLoading ? 'Sending...' : 'Save Feedback'}
+            </button>
+          )}
+          {feedbackLoading && (
+            <div className="spinner-container small">
+              <div className="spinner"></div>
+              <p>Sending feedback...</p>
+            </div>
+          )}
           
           {/* Document Information */}
           <div className="category-container">
@@ -209,7 +299,8 @@ const FileUpload = () => {
                 "RECEIVER_ADDRESS",
                 "RECEIVER_COUNTRY_CODE",
                 "RECEIVER_VAT_NUMBER",
-                "RECEIVER_ORDER_NUMBER"
+                "RECEIVER_ORDER_NUMBER",
+                "CUSTOMER_NUMBER"
               ])}
             </div>
           </div>
