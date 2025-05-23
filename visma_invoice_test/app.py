@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import shutil
 
 # Configuration
-API_URL = "https://api.stag.ssn.visma.ai/v1/transactions"
+API_URL_SYNC = "https://api.stag.ssn.visma.ai/v1/document:annotate"
+API_URL_ASYNC = "https://api.stag.ssn.visma.ai/v1/transactions"
 API_TOKEN = "3m1aKPeUC591TfjNhXch6hTGJIQcL2Pz"
 DOCUMENT_PATH = Path("uploads/fruto_ff_M-312_pag8.pdf")
 RESULTS_PATH = Path("results")
@@ -40,6 +41,7 @@ FEATURES = [
     "RECEIVER_COUNTRY_CODE",
     "RECEIVER_VAT_NUMBER",
     "RECEIVER_ORDER_NUMBER",
+    "CUSTOMER_NUMBER",
 
     # 💰 Totals and VAT
     "TOTAL_EXCL_VAT",
@@ -103,7 +105,7 @@ def enviar_assincrono(file_path: Path, remove_bbox=False):
     document_base64 = encode_file_to_base64(file_path)
 
     headers = {
-        "Authorization": f"Bearer demo",
+        "Authorization": f"Bearer {API_TOKEN}",
         "Content-Type": "application/json"
     }
 
@@ -111,47 +113,71 @@ def enviar_assincrono(file_path: Path, remove_bbox=False):
         "document": {
             "content": document_base64
         },
-        "features": FEATURES,
-        "tags": ["testing"],
+        "features": convert_features_to_objects(FEATURES),
+        "tags": ["moloni-test"],
         # "customId": f"documento-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     }
+    
+    params = {
+        "minConfidence": "VERY_LOW"
+    }
+    
+    try_async_request = True
+    
+        # Send transaction
+    print("📤 Sending document for synchronous processing...")
+    # result_response = requests.post(API_URL_SYNC, headers=headers, json=payload)
+    # if result_response.status_code == 200:
+    #     try_async_request = False
+    
 
-    # Send transaction
-    print("📤 Sending document for asynchronous processing...")
-    response = requests.post(API_URL, headers=headers, json=payload)
-    if response.status_code != 200:
-        print(f"❌ Error creating transaction: {response.status_code}")
-        print(response.text)
-        return
-
-    transaction_id = response.json().get("id")
-    if not transaction_id:
-        print("❌ Failed to get transactionId.")
-        return
-
-    print(f"⏳ Transaction created: {transaction_id}")
-    print("🕒 Waiting for completion...")
-
-    # Polling until status changes to DONE
-    while True:
-        time.sleep(POLL_INTERVAL_SECONDS)
-        status_response = requests.get(
-            f"{API_URL}/{transaction_id}/status", headers=headers)
-        status = status_response.json().get("status")
-        print(f"🔄 Status: {status}")
-        if status == "DONE":
-            break
-        elif status == "FAILED":
-            print("❌ Processing failed.")
+    if try_async_request:
+        
+        payload = {
+            "document": {
+                "content": document_base64
+            },
+            "features": FEATURES,
+            "tags": ["moloni-test"],
+            # "customId": f"documento-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        }
+        
+        # Send transaction
+        print("📤 Sending document for asynchronous processing...")
+        response = requests.post(API_URL_ASYNC, headers=headers, json=payload)
+        if response.status_code != 200:
+            print(f"❌ Error creating transaction: {response.status_code}")
+            print(response.text)
             return
 
-    # Get results
-    result_response = requests.get(
-        f"{API_URL}/{transaction_id}/results", headers=headers)
-    if result_response.status_code != 200:
-        print("❌ Error retrieving results.")
-        print(result_response.text)
-        return
+        transaction_id = response.json().get("id")
+        if not transaction_id:
+            print("❌ Failed to get transactionId.")
+            return
+
+        print(f"⏳ Transaction created: {transaction_id}")
+        print("🕒 Waiting for completion...")
+
+        # Polling until status changes to DONE
+        while True:
+            time.sleep(POLL_INTERVAL_SECONDS)
+            status_response = requests.get(
+                f"{API_URL_ASYNC}/{transaction_id}/status", headers=headers)
+            status = status_response.json().get("status")
+            print(f"🔄 Status: {status}")
+            if status == "DONE":
+                break
+            elif status == "FAILED":
+                print("❌ Processing failed.")
+                return
+
+        # Get results
+        result_response = requests.get(
+            f"{API_URL_ASYNC}/{transaction_id}/results", headers=headers, params=params)
+        if result_response.status_code != 200:
+            print("❌ Error retrieving results.")
+            print(result_response.text)
+            return
 
     result_json = result_response.json()
     
@@ -198,6 +224,60 @@ async def upload_file(file: UploadFile = File(...)):
         return JSONResponse(content={"message": "File processed successfully", "result": result}, status_code=200)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/feedback")
+async def send_feedback(feedback_data: dict):
+    """
+    Endpoint para enviar feedback ao Visma Smart Scan API.
+    Recebe os campos de feedback do frontend e os envia para o endpoint v1/feedback/create.
+    
+    Documentação: https://docs.vml.visma.ai/smartscan/api-reference/
+    """
+    print("🔍 Received feedback data:", feedback_data)
+    try:
+        headers = {
+            "Authorization": f"Bearer {API_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "id": feedback_data['transactionId'],
+            "tags": ["moloni-test"],
+            "true_values": feedback_data['fields'],
+        }
+
+        response = requests.post(
+            "https://api.stag.ssn.visma.ai/v1/feedback:create",
+            headers=headers,
+            json=payload
+        )
+        
+        if response.status_code == 200:
+            return JSONResponse(content={"message": "Feedback sent successfully", "response": response.json()}, status_code=200)
+        else:
+            return JSONResponse(
+                content={
+                    "message": "Failed to send feedback", 
+                    "error": response.text, 
+                    "status_code": response.status_code
+                }, 
+                status_code=400
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def convert_features_to_objects(features_list):
+    """
+    Converte uma lista de strings em uma lista de objetos com formato { "type": feature_name }
+    Útil para endpoints que esperam features como objetos.
+    
+    Args:
+        features_list: Lista de strings com nomes das features
+        
+    Returns:
+        Lista de dicionários no formato { "type": feature_name }
+    """
+    return [{"type": feature} for feature in features_list]
 
 if __name__ == "__main__":
     import uvicorn
